@@ -1,6 +1,6 @@
 # 실행 결과 — ponytail
 
-실험설계: [`experiments/design/ponytail.md`](../design/ponytail.md)
+실험설계: [`experiments/design/ponytail.md`](../design/ponytail.md) · 종합 보고서: [`ponytail-report.md`](ponytail-report.md)
 
 픽스처: `fixtures/bookmarks-api` (`bookmarks-api-baseline` 태그). 티켓 두 개, 조건당 3회씩(OFF/ON), 각 세션은 `Agent(isolation: "worktree")`로 `bookmarks-api-baseline`에서 격리 실행.
 
