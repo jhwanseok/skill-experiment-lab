@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
@@ -32,9 +32,12 @@ app = FastAPI(title="Bookmarks API", lifespan=lifespan)
 
 
 @app.get("/bookmarks", response_model=List[Bookmark])
-def list_bookmarks():
+def list_bookmarks(sort: Optional[str] = None):
     conn = get_connection()
-    rows = conn.execute("SELECT * FROM bookmarks ORDER BY id DESC").fetchall()
+    if sort == "title":
+        rows = conn.execute("SELECT * FROM bookmarks ORDER BY title").fetchall()
+    else:
+        rows = conn.execute("SELECT * FROM bookmarks ORDER BY id DESC").fetchall()
     conn.close()
     return [dict(row) for row in rows]
 
