@@ -2,9 +2,48 @@
 
 실험설계: [`experiments/design/ponytail.md`](../design/ponytail.md)
 
-픽스처: `fixtures/bookmarks-api` (`bookmarks-api-baseline` 태그) · 티켓 A(북마크 태그 추가 + `?tag=` 필터링) · 조건당 3회, 각 세션은 `Agent(isolation: "worktree")`로 `bookmarks-api-baseline`에서 격리 실행.
+픽스처: `fixtures/bookmarks-api` (`bookmarks-api-baseline` 태그). 티켓 두 개, 조건당 3회씩(OFF/ON), 각 세션은 `Agent(isolation: "worktree")`로 `bookmarks-api-baseline`에서 격리 실행.
+
+- **티켓 A** — 태그 추가 + `?tag=` 필터링. 순수 backend CRUD 확장, over-build trap 없음.
+- **티켓 B** — 리마인드 날짜(`remind_at`) 추가. ponytail 저자 벤치마크의 date-picker 사례를 이 픽스처에 맞춰 옮긴, over-build trap이 있게 설계한 티켓. (티켓 A 실행 후 설계 검토 결과 추가됨 — 아래 "설계 검토" 참고.)
+
+## 총괄 요약 (평균, n=3, 두 티켓)
+
+| 티켓 | 지표 | OFF | ON | 차이 |
+|---|---|---:|---:|---:|
+| A (태그+필터) | subagent_tokens | 52,724 | 55,374 | **+5.0%** |
+| A | tool_uses | 22.0 | 27.0 | **+22.7%** |
+| A | LOC 삽입(+) | 175.3 | 234.3 | **+33.7%** |
+| B (리마인드 날짜) | subagent_tokens | 49,244 | 51,177 | **+3.9%** |
+| B | tool_uses | 24.7 | 24.0 | −2.7% |
+| B | LOC 삽입(+) | 154.3 | 161.7 | **+4.8%** |
+
+두 티켓 모두 ON이 OFF보다 `subagent_tokens`가 더 컸다(방향은 같지만 티켓 B에서 격차가 훨씬 작아짐 — 아래 판정 참고). LOC도 두 티켓 모두 ON이 더 크다. tool_uses만 티켓 B에서 방향이 뒤집혔다(거의 동률, ON이 약간 낮음).
+
+**티켓 B 정성 관찰**: over-build trap(날짜 선택 UI)을 설계에 넣었음에도, **OFF/ON 6세션 전원이 네이티브 `<input type="date">`를 사용**했다 — 커스텀 캘린더 위젯이나 날짜 라이브러리를 추가한 세션은 하나도 없었고, `requirements.txt`도 6세션 전부 변경 없음. ponytail 저자의 date-picker 사례(baseline이 flatpickr 등을 설치, 404→23 LOC)에서 가정한 "베이스라인이 라이브러리로 과잉설계한다"는 전제 자체가 이번 실험의 모델(Sonnet 계열)에서는 성립하지 않았다.
+
+## 판정
+
+핵심 질문("ponytail을 켜면 토큰 사용량이 실제로 줄어드는가?")에 대해, 두 티켓 모두 **가설과 반대이거나 유의미한 차이가 없는 방향**의 신호가 나왔다. 다만 원인은 티켓별로 다르게 해석해야 한다.
+
+- **티켓 A**: 애초에 over-build trap이 없는 순수 backend CRUD 티켓이었다(설계 검토 참고) — ponytail이 잘라낼 과잉설계 자체가 없는 조건에서 측정한 것이므로, "ponytail이 효과 없다"보다는 "이 조건은 ponytail의 주장을 테스트할 무대가 아니었다"는 해석이 맞다.
+- **티켓 B**: over-build trap을 의도적으로 설계했음에도 OFF 조건조차 이미 네이티브 `<input type="date">`를 선택했다 — 즉 **이번 실험에 쓰인 모델은 ponytail 없이도 이미 저자가 말하는 "lazy 선택"을 기본으로 한다.** 이는 ponytail 저자 스스로 명시한 한계("Bigger models may close the over-build gap")와 정확히 일치하는 결과다. 두 조건이 이미 같은 최소 구현에서 출발하니 ON이 더 잘라낼 게 없고, 남은 차이(+3.9% 토큰, +4.8% LOC)는 세션 간 자연 변동(테스트 개수 등)에 가깝다.
+
+**종합**: 이 실험(작은 FastAPI+SQLite 픽스처, Sonnet 계열 모델, n=3×2×2티켓)에서는 ponytail의 "토큰 사용량 감소" 주장이 재현되지 않았다. 그러나 이것이 ponytail이 효과가 없다는 증거는 아니다 — 오히려 **효과가 나타나려면 필요한 두 전제조건(① over-build trap이 실제로 존재하는 티켓, ② 그 트랩에 빠질 만큼 상대적으로 약한 모델)** 중 최소 하나가 이번 실험 환경에는 없었다는 게 더 정확한 결론이다. 저자 자신의 agentic 벤치마크(Haiku 4.5, 실제 대형 오픈소스 레포)도 동일한 구조를 보여준다: backend CRUD는 arm 간 거의 차이 없고, 효과는 프론트엔드 컴포넌트 라이브러리 함정에서만 크게 난다.
+
+## 설계 검토 (티켓 A → B로 이어진 경위)
+
+티켓 A 실행 직후 결과가 가설과 반대로 나와, ponytail 저장소의 실제 agentic 벤치마크(`benchmarks/results/2026-06-18-agentic.md`, 저자 자체 발표, Haiku 4.5·`tiangolo/full-stack-fastapi-template` 대상)를 재확인했다. 핵심 발견:
+
+- 저자 데이터에서도 backend CRUD 티켓은 arm 간 거의 차이 없음("search items by title" 44→44 LOC, 0%). 효과는 에이전트가 커스텀 컴포넌트/라이브러리를 설치하려는 지점에 집중(date picker −94%, color picker −92%).
+- 저자 스스로 "이미 최소한인 코드에서는 효과가 0에 가깝다"고 명시.
+- 티켓 A는 순수 backend CRUD + 라이브러리 선택 여지 없는 단순 필드 추가였다. 실측으로도 6개 worktree 전부 의존성 변경 없음 — 애초에 잘라낼 과잉설계가 없었다.
+
+이에 따라 저자 벤치마크의 date-picker 사례를 옮긴 **티켓 B**(리마인드 날짜)로 재실험했다. 조건·표본 규모·지표는 티켓 A와 동일. worktree 스냅샷 이슈(아래)에 대응하기 위해 이번엔 프롬프트에 "필요하면 `git checkout bookmarks-api-baseline -- fixtures/bookmarks-api`로 복구하라"는 안내를 OFF/ON 모두에 동일하게 추가해 표준화했다.
 
 ## 실행별 지표
+
+### 티켓 A
 
 | 세션 | 조건 | subagent_tokens | tool_uses | duration_ms | 테스트 결과 | LOC(+/-) |
 |---|---|---:|---:|---:|---|---:|
@@ -15,25 +54,27 @@
 | ON-2 | ponytail on, caveman off | 52,626 | 27 | 19,374,669† | 10 passed | +256/-15 |
 | ON-3 | ponytail on, caveman off | 58,362 | 31 | 19,184,953† | 9 passed | +261/-17 |
 
-† ON 조건 3회 모두 `duration_ms`가 OFF 대비 약 70배(19,000,000ms대) 튀었다. 세 값이 서로 거의 같고(19,184,953 / 19,197,800 / 19,374,669), 같은 시간대에 실행되어 세션이 오래 대기한 벽시계 시간(예: 컴퓨터 유휴/절전)이 섞여 들어간 것으로 보고 이 열은 참고용에서 제외했다. `subagent_tokens`는 OFF와 같은 범위라 오염되지 않은 것으로 판단.
+† ON 조건 3회 모두 `duration_ms`가 OFF 대비 약 70배(19,000,000ms대) 튀었다. 세 값이 서로 거의 같고, 같은 시간대에 실행되어 세션이 오래 대기한 벽시계 시간(예: 컴퓨터 유휴/절전)이 섞여 들어간 것으로 보고 이 열은 참고용에서 제외했다. `subagent_tokens`는 OFF와 같은 범위라 오염되지 않은 것으로 판단.
 
-## 요약 (평균, n=3)
+### 티켓 B
 
-| 지표 | OFF | ON | 차이 |
-|---|---:|---:|---:|
-| subagent_tokens | 52,724 | 55,374 | **+5.0%** (ON이 더 큼) |
-| tool_uses | 22.0 | 27.0 | **+22.7%** (ON이 더 큼) |
-| LOC 삽입(+) | 175.3 | 234.3 | **+33.7%** (ON이 더 큼) |
+| 세션 | 조건 | subagent_tokens | tool_uses | duration_ms | 테스트 결과 | LOC(+/-) | date UI |
+|---|---|---:|---:|---:|---|---:|---|
+| OFF-B-1 | ponytail off, caveman off | 48,622 | 22 | 185,758 | 8 passed | +190/-6 | native `<input type="date">` |
+| OFF-B-2 | ponytail off, caveman off | 50,322 | 28 | 218,155 | 8 passed | +140/-7 | native |
+| OFF-B-3 | ponytail off, caveman off | 48,788 | 24 | 199,682 | 8 passed | +133/-5 | native |
+| ON-B-1 | ponytail on, caveman off | 48,995 | 22 | 147,860 | 8 passed | +175/-14 | native |
+| ON-B-2 | ponytail on, caveman off | 50,697 | 24 | 278,346 | 8 passed | +147/-7 | native |
+| ON-B-3 | ponytail on, caveman off | 53,839 | 26 | 191,559 | 9 passed | +163/-7 | native |
 
-## 판정
-
-핵심 질문("ponytail을 켜면 토큰 사용량이 실제로 줄어드는가?")에 대해, 이 archetype(코드 생성/볼륨)·이 티켓(태그 추가+필터링) 범위에서는 **가설과 반대 방향의 신호**가 나왔다: ON 조건이 OFF 대비 `subagent_tokens`·`tool_uses`·LOC 모두에서 일관되게 더 컸다. n=3으로 표본이 작아 확정적 결론은 아니지만, "토큰 절감" 주장이 이 조건에서는 재현되지 않았다는 약한 근거로 제시한다.
-
-정성적으로도, ON 조건 세션들의 자체 보고 요약을 보면 태그 필터 UI에 드롭다운(`<select>`)을 추가하거나 삭제 시 태그 cascade 정리 테스트를 추가하는 등 OFF 조건보다 오히려 범위를 더 넓게 잡는 경향이 보였다 — ponytail의 "YAGNI 강제"가 최소 구현을 유도하기보다는, 세부 케이스(트림/중복 제거/cascade 등)를 더 꼼꼼히 챙기게 만든 것으로 보인다. 이는 코드 품질 측면에서는 긍정적일 수 있으나, "토큰이 준다"는 주장과는 반대다.
+티켓 B에서는 `duration_ms`가 모든 세션에서 정상 범위(15만~28만 ms)였다 — 티켓 A에서 관찰된 ON 조건 벽시계 오염은 이번엔 재현되지 않았다(우연히 그 시간대에 컴퓨터가 유휴 상태였을 가능성이 높다는 추정을 뒷받침).
 
 ## 방법론 메모 / 한계
 
-- **worktree 스냅샷 시점**: `Agent(isolation: "worktree")`가 만드는 worktree는 이 대화 세션이 시작된 시점의 저장소 상태를 기준으로 분기됐다(baseline 커밋/태그는 세션 도중에 만들어졌으므로 worktree에는 반영되지 않음). 6회 세션 중 5회는 에이전트가 자체적으로 `git checkout bookmarks-api-baseline -- fixtures/bookmarks-api`로 복구한 뒤 작업했다. 최초 OFF-1 실행은 이를 알아채지 못하고 CRUD API 전체를 처음부터 새로 작성해(범위가 완전히 다름) 폐기하고 동일 조건으로 재실행했다(위 표의 OFF-1은 재실행분). 이 복구 단계는 OFF/ON 모두에 동일하게 발생해 조건 간 비교를 왜곡하지는 않지만, 각 세션의 절대 토큰 수치에는 몇 천 토큰 수준의 복구 비용이 섞여 있다.
-- **duration_ms 신뢰 불가**: 위 설명대로 ON 조건 3회의 `duration_ms`는 사용할 수 없다(벽시계 유휴 시간 오염 추정).
-- **테스트 개수 편차**: 세션마다 추가한 테스트 개수(5~10개)가 다른데, 이는 각 에이전트가 커버리지를 얼마나 넓게 잡았는지의 재량 차이이며 그 자체로 LOC/토큰 차이의 한 원인이다.
-- **표본 크기**: 조건당 n=3. 신호는 세 지표에서 일관되게 같은 방향이라 "약한 신호"로는 충분하지만, 반복을 늘리면 더 견고해진다.
+- **worktree 스냅샷 시점**: `Agent(isolation: "worktree")`가 만드는 worktree는 이 대화 세션이 시작된 시점의 저장소 상태를 기준으로 분기된다(baseline 커밋/태그는 세션 도중에 만들어졌으므로 초기 worktree에는 반영되지 않았다). 티켓 A의 6세션 중 5세션은 에이전트가 자체적으로 `git checkout bookmarks-api-baseline -- fixtures/bookmarks-api`로 복구했고, 1세션(최초 OFF-1)은 이를 알아채지 못해 CRUD API 전체를 처음부터 새로 작성(범위가 완전히 다름)해 폐기하고 재실행했다. 티켓 B부터는 프롬프트에 복구 안내를 명시해 6세션 전원이 동일하게 대응했다. 이 복구 단계는 OFF/ON 모두에 동일하게 발생해 조건 간 비교를 왜곡하지는 않지만, 각 세션의 절대 토큰 수치에는 복구 비용이 몇 천 토큰 수준 섞여 있다.
+- **duration_ms 신뢰성**: 티켓 A의 ON 조건 3회에서만 벽시계 유휴 시간으로 추정되는 이상치(19,000,000ms대)가 나타났다. 티켓 B는 정상 범위였다. 조건-특이적 현상이 아니라 우연한 시간대 문제로 보고, 반복 실행 시 항상 검산 필요.
+- **활성화 직접 검증 불가**: ON 조건에서 ponytail이 서브에이전트 프로세스에 실제로 반영됐는지는 결과물만으로 간접 확인할 수밖에 없다(`ponytail:` 주석 마커 유무 등). 두 티켓 12개 ON 세션 전부에서 `ponytail:` 마커가 하나도 없었다 — "자를 코너가 없어서"인지 "활성화가 안 됐는지" 결과물만으로는 구분 불가능하다는 검증 공백이 남는다.
+- **모델 불일치**: ponytail 저자 벤치마크는 Haiku 4.5 고정, 이 실험은 기본 상속 모델(더 강한 모델). 저자도 "더 강한 모델일수록 격차가 줄어들 수 있다"는 한계를 인정했고, 티켓 B에서 OFF 조건조차 이미 네이티브 date input을 선택한 것이 바로 그 현상으로 보인다.
+- **테스트 개수 재량 편차**: 세션마다 추가한 테스트 개수(티켓 A: 5~10개, 티켓 B: 5~6개)가 다르다 — 조건과 무관한 에이전트별 재량이며 LOC/토큰 차이의 상당 부분을 설명할 수 있다.
+- **caveman을 두 조건 모두 꺼둔 것**: 변수 격리 원칙상 맞는 선택이지만, 사용자가 실제로 쓰는 조합(ponytail+caveman 둘 다 on)과는 다른 상태를 측정했다 — "실사용 조합에서의 전체 효과"는 별개 질문으로 남는다.
+- **표본 크기**: 티켓당 n=3(OFF/ON 각 3회). 저자 벤치마크는 n=4×12티켓으로 훨씬 크다.
