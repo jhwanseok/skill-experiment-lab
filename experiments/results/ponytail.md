@@ -20,7 +20,9 @@
 | B | tool_uses | 24.7 | 22.7 | −8.1% |
 | B | LOC 삽입(+) | 154.3 | 101.3 | **−34.4%** |
 
-**핵심 질문("ponytail을 켜면 토큰 사용량이 실제로 줄어드는가?")에 대한 답: 아니오, 적어도 이 실험에서는 아니다 — 하지만 코드량은 확실히 줄어든다.** 두 티켓 모두 LOC이 -34~-49% 감소했고(저자 주장 "~54% less code"와 근접), `tool_uses`도 소폭 감소했다. 그러나 `subagent_tokens`는 거의 그대로(A)이거나 오히려 늘었다(B, +8.7%). 코드가 짧아진 만큼 "왜 이렇게 잘랐는지"를 설명하는 추론·프로즈(`ponytail:` 주석, "skipped: X, add when Y" 요약, 래더를 따라가는 사고 과정)에 토큰이 들어간 것으로 보이며, 이는 ponytail 저장소가 스스로 명시한 한계("a terse reasoning model that spends thinking tokens deliberating the rungs can go the other way")와 정확히 일치한다.
+**핵심 질문("ponytail을 켜면 토큰 사용량이 실제로 줄어드는가?")에 대한 답: gross 기준으로는 아니오 — 하지만 코드량은 확실히 줄어든다.** 두 티켓 모두 LOC이 -34~-49% 감소했고(저자 주장 "~54% less code"와 근접), `tool_uses`도 소폭 감소했다. 그러나 `subagent_tokens`는 거의 그대로(A)이거나 오히려 늘었다(B, +8.7%).
+
+**주의**: 이 `subagent_tokens` 차이에는 ON 조건에서만 발생하는 `Skill` 도구 호출(SKILL.md 로딩, 6,757자·약 1,500~2,000토큰 추정)의 고정비용이 섞여 있다 — 사전에 통제하지 못했고 사후 역산한 값이다. 이를 빼면 티켓 A는 순수 작업 토큰이 실제로는 **감소**(로딩비가 절감분을 상쇄해 gross로는 "변화 없음"처럼 보였을 뿐)했고, 티켓 B는 로딩비를 빼고도 여전히 **증가**했다. 상세 분해는 [`ponytail-report.md`](ponytail-report.md)의 "토큰 차이 분해" 참고. 티켓 B의 순증가는 코드가 짧아진 만큼 "왜 이렇게 잘랐는지"를 설명하는 추론·프로즈(`ponytail:` 주석, "skipped: X, add when Y" 요약, 래더를 따라가는 사고 과정)에 토큰이 들어간 것으로 보이며, 이는 ponytail 저장소가 스스로 명시한 한계("a terse reasoning model that spends thinking tokens deliberating the rungs can go the other way")와 일치한다.
 
 ### 정성적 근거 — 실제로 다르게 행동했다
 
