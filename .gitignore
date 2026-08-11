@@ -216,3 +216,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Skill experiment worktrees (per-run isolated checkouts, not tracked)
+.worktrees/
+
+# Local-only skill review queue — personal notes, not published
+SKILLS_BACKLOG.md
+
+# Local-only experiment plan — kept private, not published
+experiments/PLAN.md
