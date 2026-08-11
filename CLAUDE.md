@@ -26,9 +26,10 @@
 1. `SKILLS_BACKLOG.md`를 확인한다. 없으면 `/add-skill <저장소 URL>`로 추가한다.
 2. 어느 archetype에 해당하는지 판단한다. 안 맞으면 `fixtures/`에 새 archetype을 추가한다.
 3. 핵심 질문 하나와 그걸 답하는 주 지표(primary metric) 하나를 정한다 — 저장소 README가 제안하는 모든 축을 다 재려 하지 않는다.
-4. 조건(도구 off/on)마다 baseline 태그에서 분기한 격리된 git worktree에서 세션을 실행한다.
-5. `experiments/results/`에 실행별 지표를 기록하고, `experiments/INDEX.md`에 요약 행을 추가한다.
-6. `SKILLS_BACKLOG.md`의 Status를 `done`으로 갱신하고 결과/아티클 링크를 남긴다.
+4. `experiments/design/<skill>.md`에 실험설계 문서를 작성한다: 핵심 질문, 주 지표, 대상 archetype과 조건(도구 off/on), 표본 규모, 가설을 적는다. 이 문서와 결과를 함께 근거로 나중에 블로그 글을 쓰므로, 실행 전에 먼저 고정한다.
+5. 조건(도구 off/on)마다 baseline 태그에서 분기한 격리된 git worktree에서 세션을 실행한다. **본 실행 전에 "훅 기반 플러그인 활성화 검증"(아래) 절차로 ON 조건이 실제로 활성화되는지 먼저 1회 확인한다.**
+6. `experiments/results/`에 실행별 지표를 기록하고, `experiments/INDEX.md`에 요약 행을 추가한다.
+7. `SKILLS_BACKLOG.md`의 Status를 `done`으로 갱신하고, 실험설계 문서·결과·아티클 링크를 남긴다.
 
 ## 지표 수집 규칙
 
@@ -41,3 +42,14 @@ Claude Code의 `Agent` 도구를 `isolation: "worktree"`로 호출하면 실행 
 ## 전역 설정을 건드리는 실험
 
 플러그인 on/off 토글이 `~/.claude/settings.json` 같은 전역 설정을 거쳐야 하는 경우, 이 머신의 다른 Claude Code 세션에도 영향을 준다는 걸 실행 전에 반드시 알리고 진행하며, 실험이 끝나면 원래 상태로 복원한다.
+
+## 훅 기반 플러그인 활성화 검증 (필수, 본 실행 전)
+
+ponytail 실험(2026-08-12)에서 확인된 사실: `~/.claude/settings.json`의 `enabledPlugins`를 토글하는 것만으로는 **`Agent(isolation: "worktree")`로 스폰한 서브에이전트에 플러그인의 SessionStart 훅 기반 "항상-켜짐" 룰셋이 주입되지 않는다.** `isolation` 옵션 유무와도 무관하다 — `Agent` 도구로 스폰되는 서브에이전트 전반의 구조적 한계로 보인다. 설정값 자체(`enabledPlugins`)는 서브에이전트에 정확히 전달되므로, 겉보기엔 정상 작동하는 것처럼 보이기 쉽다.
+
+**따라서 훅/SessionStart 기반으로 "항상 켜짐"을 광고하는 플러그인(ponytail, superpowers, claude-mem 등)을 on/off 실험할 때는, 조건당 3회 본 실행에 들어가기 전에 다음을 1회씩만 수행해 활성화를 확인한다:**
+
+1. 코드 작업 없는 진단 전용 서브에이전트(`Agent`, worktree 격리 불필요)를 ON 조건에서 1회 띄워, "SessionStart hook additional context 형태의 텍스트가 실제로 주입됐는지, 스킬의 핵심 룰셋(카탈로그 한 줄 설명이 아니라 실제 지침 본문)이 보이는지"를 자기보고하게 한다.
+2. 주입이 안 됐다면, 프롬프트에서 `Skill` 도구로 해당 스킬을 명시적으로 호출하도록 지시하는 우회책이 통하는지 확인한다(ponytail은 이 방식으로 우회 확인됨).
+3. 우회가 통하면, 본 실행의 ON 조건 프롬프트 전체에 "먼저 `Skill` 도구로 `<plugin>:<skill>`을 호출한 뒤 작업하라"는 지시를 표준으로 추가하고 진행한다. 이 경우 결과 문서에 "명시적 호출 조건에서의 효과"이지 "설치만 해두면 자동으로 얻는 효과"가 아니라는 점을 명시한다.
+4. 이 진단을 생략하고 본 실행부터 시작하지 않는다 — 활성화 실패를 못 알아채면 OFF/ON 비교가 사실상 off vs off가 되어 조건당 3회를 반복해도 유효한 신호를 얻을 수 없다(ponytail 티켓 A/B에서 실제로 발생, `experiments/results/ponytail.md` 참고).
