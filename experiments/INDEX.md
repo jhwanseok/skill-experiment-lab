@@ -4,6 +4,5 @@
 
 | Date | Tool | Fixture | Ticket/Query | Condition | Reps | Primary Metric | Result | Notes |
 |---|---|---|---|---|---|---|---|---|
-| | | | | | | | | |
-
-(아직 실행된 실험이 없다.)
+| 2026-08-12 | ponytail | bookmarks-api | 티켓 A (태그+필터링) | OFF | 3 | subagent_tokens avg 52,724 | — | [design](design/ponytail.md) · [results](results/ponytail.md) |
+| 2026-08-12 | ponytail | bookmarks-api | 티켓 A (태그+필터링) | ON | 3 | subagent_tokens avg 55,374 (+5.0% vs OFF) | 가설과 반대: 토큰·tool_uses·LOC 모두 ON이 더 큼 | [design](design/ponytail.md) · [results](results/ponytail.md) |
