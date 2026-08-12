@@ -1,6 +1,6 @@
 # 실행 결과 — caveman
 
-실험설계: [`experiments/design/caveman.md`](../design/caveman.md)
+실험설계: [`experiments/design/caveman.md`](../design/caveman.md) · 종합 보고서: [`caveman-report.md`](caveman-report.md)
 
 두 archetype 모두 헤드리스 `claude -p` CLI(`--output-format json`)로 실행. archetype 2의 OFF 데이터는 superpowers 실험에서 재사용.
 
