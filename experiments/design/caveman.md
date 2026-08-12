@@ -17,38 +17,39 @@ caveman(응답을 "caveman 말투"로 압축하는 스킬)을 켰을 때, **여�
 
 이 실험은 저자가 스스로 예고한 "에이전틱 코딩에서는 세션 전체 절감폭이 작거나 마이너스일 수 있다"는 주장을 실측으로 검증하는 실험이 된다 — ponytail/superpowers처럼 저자의 자체 caveat이 우리 결과 해석의 기준선이 된다.
 
-## 대상 archetype / 픽스처 / 티켓 — 기존 실험 재사용
+## 대상 archetype / 픽스처 / 티켓
 
-SKILLS_BACKLOG 권장대로 caveman은 특정 archetype에 묶이지 않으므로, 이미 검증된 두 archetype·픽스처·OFF 데이터를 재사용한다(표본 규모 원칙 — 과도한 재실행 금지):
+SKILLS_BACKLOG 권장대로 caveman은 특정 archetype에 묶이지 않으므로, 이미 검증된 두 archetype·픽스처를 재사용한다:
 
-| Archetype | 픽스처/티켓 | 실행 메커니즘 | 재사용할 OFF 데이터 |
-|---|---|---|---|
-| 코드 생성/볼륨 | `bookmarks-api-baseline`, ponytail 티켓 A(태그+필터링) | `Agent(isolation:"worktree")` | ponytail 실험 OFF 3세션 (`subagent_tokens` avg 52,724) — [`ponytail.md`](ponytail.md) |
-| 디버깅/프로세스 | `bookmarks-api-baseline-bug`, superpowers 버그 티켓(대소문자 정렬) | 헤드리스 `claude -p` CLI | superpowers 실험 OFF 3세션 (`cost_usd` avg 0.3416) — [`superpowers.md`](superpowers.md) |
+| Archetype | 픽스처/티켓 | 실행 메커니즘 |
+|---|---|---|
+| 코드 생성/볼륨 | `bookmarks-api-baseline`, ponytail 티켓 A(태그+필터링) | 헤드리스 `claude -p` CLI |
+| 디버깅/프로세스 | `bookmarks-api-baseline-bug`, superpowers 버그 티켓(대소문자 정렬) | 헤드리스 `claude -p` CLI |
 
-두 OFF 데이터셋 모두 `caveman@caveman: false`로 실행됐으므로(각 실험이 변수 격리 원칙에 따라 caveman을 꺼뒀음) 그대로 유효한 대조군이다. **새로 실행하는 건 ON 조건뿐** — 조건당 3회, 총 6세션.
+**활성화 검증 결과 설계가 바뀌었다**: `Agent(isolation:"worktree")` 경로에서 caveman은 superpowers와 똑같이 완전히 도달 불가능했다(카탈로그에도 없고 `Skill` 명시 호출도 `Unknown skill: caveman:caveman` 에러). 따라서 두 archetype 모두 `claude -p`로 통일한다.
 
-## 활성화 검증 (본 실행 전 필수)
+- **디버깅/프로세스(archetype 2)**: superpowers 실험의 OFF 데이터가 이미 `claude -p` 기반이라 그대로 재사용 가능(`cost_usd` avg 0.3416) — [`superpowers.md`](superpowers.md). **ON 3회만 신규 실행.**
+- **코드 생성/볼륨(archetype 1)**: ponytail 실험의 기존 OFF 데이터는 `Agent` 도구 기반(`subagent_tokens`)이라 측정 방식이 달라 재사용 불가 — **OFF/ON 모두 `claude -p`로 새로 실행**(3+3).
 
-ponytail·superpowers 경험상 훅 기반 플러그인은 실행 메커니즘마다 다르게 반응했다. 본 실행 전 각 메커니즘에서 1회씩 저비용 진단:
+총 신규 실행: 3(archetype 1 OFF) + 3(archetype 1 ON) + 3(archetype 2 ON) = **9세션**.
 
-1. **`Agent(isolation:"worktree")` 경로**: 진단 전용 서브에이전트를 띄워 (a) `caveman` 룰셋 본문이 자동 주입되는지, (b) 안 된다면 `Skill` 도구로 `caveman:caveman`을 명시적으로 호출했을 때 로드되는지 확인.
-2. **`claude -p` 경로**: `enabledPlugins.caveman: true`로 설정한 뒤 스모크 테스트(`claude -p "질문" --output-format json`)로 실제 응답이 caveman 스타일로 압축되는지, 그리고 `cache_creation_input_tokens` 증가폭(로딩 비용 추정치)을 확인.
-3. 두 경로 모두 명시적 호출 없이도 되면 자연 상태로, 안 되면 최소한의 우회(명시적 `Skill` 호출 1회 또는 `/caveman` 커맨드)를 프롬프트에 추가해 본 실행 진행.
-4. 이 진단도 전역 설정(`caveman`)을 건드리므로 시작 전 알린다.
+## 활성화 검증 결과 (완료)
+
+- **`Agent(isolation:"worktree")` 경로**: 완전 실패 — caveman이 카탈로그에도 없고 `Skill` 명시 호출도 `Unknown skill: caveman:caveman` 에러(superpowers와 동일한 실패 양상). 이 경로는 포기.
+- **`claude -p` 경로**: 성공 — `enabledPlugins.caveman: true`로 스모크 테스트한 결과 실제로 caveman 말투("Inline object new reference each render. Prop equality check fail even if content same.")로 응답함을 확인. 이 경로로 두 archetype 모두 통일.
 
 ## 조건
 
-- **OFF**: 기존 데이터 재사용(위 표) — 새로 실행 안 함.
-- **ON**: `enabledPlugins.caveman@caveman: true`, 나머지(`ponytail`, `superpowers`)는 false로 고정. 활성화 검증에서 결정된 방식(자연 발동 또는 명시적 호출)으로 각 archetype의 원래 티켓을 동일하게 실행.
+- **OFF**: archetype 2는 기존 superpowers 실험 OFF 데이터 재사용. archetype 1은 `claude -p`로 신규 실행(`enabledPlugins.caveman@caveman: false`).
+- **ON**: `enabledPlugins.caveman@caveman: true`, 나머지(`ponytail`, `superpowers`)는 false로 고정. 두 archetype 모두 원래 티켓 문구 그대로 `claude -p`로 실행(자연 훅 발동 확인됐으므로 프롬프트에 별도 지시 추가 안 함).
 
 ## 표본 규모
 
-archetype당 ON 3회, 총 6세션(신규 실행). OFF는 기존 6세션(각 archetype 3회씩) 재사용.
+archetype 1은 OFF/ON 각 3회(신규), archetype 2는 ON 3회만 신규(OFF는 superpowers 실험 재사용). 총 신규 9세션.
 
 ## 지표
 
-- **Primary**: 세션 전체 토큰(archetype 1은 `subagent_tokens`, archetype 2는 `total_tokens`/`cost_usd` — 각 archetype의 기존 OFF 데이터와 동일한 정의 사용) — OFF 대비 몇 % 차이인지. 저자 주장(에이전틱 세션 14~21% 절감, 터스한 경우 마이너스)과 직접 비교.
+- **Primary**: 세션 전체 `cost_usd`/`total_tokens`(`claude -p`의 `--output-format json`에서 파싱, 두 archetype 동일 정의) — OFF 대비 몇 % 차이인지. 저자 주장(에이전틱 세션 14~21% 절감, 터스한 경우 마이너스)과 직접 비교.
 - **Secondary — 품질 저하 여부(정성)**: caveman 자신의 규칙("never drop not/never/no/only/except", "errors quoted exact", "code blocks unchanged")을 기준으로, 코드 정확성(테스트 통과·근본 원인 수정 — 각 archetype의 기존 판정 기준 그대로 적용)과 커뮤니케이션 명확성(응답에서 부정어·정확한 값이 실수로 생략되지 않았는지)에 저하가 있는지 확인.
 - **Secondary — 산문 압축률**: 세션 최종 응답(요약문)의 길이가 OFF 대비 얼마나 줄었는지(저자 주장 "출력 65% 감소"와 비교할 수 있는 유일한 축).
 
