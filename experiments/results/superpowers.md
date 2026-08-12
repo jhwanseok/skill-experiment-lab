@@ -1,6 +1,6 @@
 # 실행 결과 — superpowers
 
-실험설계: [`experiments/design/superpowers.md`](../design/superpowers.md)
+실험설계: [`experiments/design/superpowers.md`](../design/superpowers.md) · 종합 보고서: [`superpowers-report.md`](superpowers-report.md)
 
 픽스처: `fixtures/bookmarks-api` (`bookmarks-api-baseline-bug` 태그 — `GET /bookmarks?sort=title`에 `COLLATE NOCASE` 없이 대소문자 구분 정렬 버그를 심고 재현 테스트는 없앤 상태). 버그 리포트 티켓(자연스러운 1인칭 문장, 에이전트 아키텍처 언급 없음) 동일 문구를 OFF/ON 각 3회에 제공.
 
