@@ -12,6 +12,19 @@ superpowers 전체(메타 규칙 `using-superpowers`가 유도하는 "관련 스
 
 **3차 설계(현재)**: 프롬프트에서 에이전트 아키텍처에 대한 메타 설명을 아예 뺀다. 대신 **실제 사용자가 1인칭으로 자연스럽게 버그를 리포트하는 문장**으로만 티켓을 쓴다. 그러면 모델이 "나는 좁은 작업에 파견된 서브에이전트인가, 아닌가"를 강요 없이 스스로 판단하게 되고, 이게 superpowers의 SUBAGENT-STOP 로직이 우리 하네스(`Agent` 도구를 통한 호출)에서 실제로 어떻게 작동하는지에 대한 정직한 관찰이 된다. 만약 이렇게 자연스러운 프레이밍을 줘도 자발적으로 발동을 안 한다면 — 그 자체가 "이런 종류의 자동화된/헤드리스 호출로는 superpowers의 자율 발동 메커니즘을 못 쓴다"는, 그 자체로 보고할 가치가 있는 발견이다.
 
+## 4차 설계 — `Agent` 도구를 버리고 헤드리스 `claude -p` CLI로 전환
+
+활성화 검증(아래)에서 `superpowers`가 `Agent(isolation:"worktree")` 서브에이전트에는 **완전히 도달 불가능**하다는 게 확인됐다(카탈로그에도 없고 명시적 `Skill` 호출도 전부 `Unknown skill` 에러). ponytail보다 심각한 실패였다. 이 제약은 스킬 자체의 문제가 아니라 이 실험이 "파견된 서브에이전트"를 통해서만 스킬을 켜려 했다는, 하네스가 스스로 만든 제약이었다 — 원래 질문(스킬이 실제로 프로세스를 개선하는가)과는 무관하다.
+
+그래서 `Agent` 도구를 완전히 버리고, 진짜 최상위 세션인 **헤드리스 `claude -p` CLI 프로세스**(Bash로 직접 실행, `--output-format json`)로 전환한다:
+
+- 세션 격리: `Agent` 도구의 자동 worktree 대신, `git worktree add`로 `bookmarks-api-baseline-bug`에서 직접 분기한 worktree를 조건×반복 수만큼 수동 생성.
+- 실행: 각 worktree 안에서 `claude -p "<티켓>" --output-format json --permission-mode bypassPermissions`.
+- 지표: `Agent` 도구가 주던 `subagent_tokens`/`tool_uses`/`duration_ms` 대신, `claude -p`의 JSON 출력에 담긴 `usage`(input/output/cache tokens), `total_cost_usd`, `duration_ms`, `num_turns`를 직접 파싱해서 쓴다. CLAUDE.md의 "별도 계측 스크립트를 새로 만들지 않는다" 원칙에서 벗어나는 예외이며, 사용자가 이 원칙보다 "스킬이 실제로 작동하는지 확인"이라는 실험의 원래 목적을 우선하기로 명시적으로 결정했다.
+- **활성화 재확인 완료**: 이 방식으로 스모크 테스트한 결과, OFF에서는 `using-superpowers` 내용이 전혀 없고 ON에서는 SUBAGENT-STOP을 포함한 전체 본문이 정상 주입됨을 확인했다(cache_creation_input_tokens가 7,378→9,350으로 스킬 로딩 비용만큼 증가 — ponytail 때와 같은 패턴). 진짜 최상위 세션이므로 SUBAGENT-STOP에 걸릴 근거도 없다.
+
+이하 픽스처·티켓·조건·표본·1차 지표(근본 원인 수정, 재현 테스트 유효성, RED→GREEN 커밋 패턴)는 이전 설계와 동일하다. 아래 "조건"과 "활성화 검증" 절의 실행 메커니즘 설명만 `claude -p` 기준으로 대체된 것으로 읽는다.
+
 ## 대상 archetype / 픽스처 / 티켓
 
 - Archetype: 디버깅/프로세스
